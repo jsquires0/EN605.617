@@ -57,37 +57,50 @@ void mod(int *pos, int *rnd, int *out)
 
 }
 
-extern "C" void doAdd(int numBlocks, int totalThreads, int *pos, int *rnd, int *added)
+/* 
+    Calls add, subtract, mult, and mod and performs calculations on gpu
+*/
+extern "C" void doMath(int numBlocks, int totalThreads, int *pos, 
+                       int *rnd, int *added, int *subd, int *multd, int *moded)
 {
-    int *gpu_pos, *gpu_rnd, *gpu_out;
+    int *gpu_pos, *gpu_rnd, *gpu_added, *gpu_subd, *gpu_multd, *gpu_moded;
     
     //allocate gpu memory
     cudaMalloc((void**)&gpu_pos, totalThreads * sizeof(int));
     cudaMalloc((void**)&gpu_rnd, totalThreads * sizeof(int));
-    cudaMalloc((void**)&gpu_out, totalThreads * sizeof(int));
-    
-                                
-                                  
+    cudaMalloc((void**)&gpu_added, totalThreads * sizeof(int));
+    cudaMalloc((void**)&gpu_subd, totalThreads * sizeof(int));
+    cudaMalloc((void**)&gpu_multd, totalThreads * sizeof(int));
+    cudaMalloc((void**)&gpu_moded, totalThreads * sizeof(int));
+                  
     // copy inputs to gpu
     cudaMemcpy(gpu_pos, pos, totalThreads * sizeof(int), 
 				cudaMemcpyHostToDevice);
     cudaMemcpy(gpu_rnd, rnd, totalThreads * sizeof(int), 
 				cudaMemcpyHostToDevice);
     
-	add<<<numBlocks, totalThreads>>>(gpu_pos, gpu_rnd, gpu_out);
-
+    // compute results on gpu
+	add<<<numBlocks, totalThreads>>>(gpu_pos, gpu_rnd, gpu_added);
+    subtract<<<numBlocks, totalThreads>>>(gpu_pos, gpu_rnd, gpu_subd);
+    mult<<<numBlocks, totalThreads>>>(gpu_pos, gpu_rnd, gpu_multd);
+    mod<<<numBlocks, totalThreads>>>(gpu_pos, gpu_rnd, gpu_moded);
+    
 	// copy back to cpu 
-	cudaMemcpy(added, gpu_out, totalThreads * sizeof(int), 
+	cudaMemcpy(added, gpu_added, totalThreads * sizeof(int), 
+				cudaMemcpyDeviceToHost);
+    cudaMemcpy(subd, gpu_subd, totalThreads * sizeof(int), 
 				cudaMemcpyDeviceToHost); 
-    
-    
-	for (int i=0; i<10; i++) 
-    {
-        printf( "%d + %d = %d\n", pos[i], rnd[i], added[i] );
-    }
-                                  
+    cudaMemcpy(multd, gpu_multd, totalThreads * sizeof(int), 
+				cudaMemcpyDeviceToHost); 
+    cudaMemcpy(moded, gpu_moded, totalThreads * sizeof(int), 
+				cudaMemcpyDeviceToHost); 
+                        
+    // clean up                           
 	cudaFree(gpu_pos);
 	cudaFree(gpu_rnd);
-	cudaFree(gpu_out);
+	cudaFree(gpu_added);
+    cudaFree(gpu_subd);
+    cudaFree(gpu_multd);
+    cudaFree(gpu_moded);
     
 }

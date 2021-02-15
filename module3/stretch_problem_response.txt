@@ -1,0 +1,6 @@
+Overall I think this code is ok. All of the memory allocation and host/device
+memory copying seems correct, so assuming the add and addHost functions are sensible
+the bulk of the code is good. One issue is the default arguments for blocks and threads. Since
+64 % 3 != 0, at best this is a suboptimal choice and at worst, depending on what the user enters,
+it could cause a crash. Assuming the script is only executed once, if functions other than
+add are required the script would need to be edited and recompiled.
