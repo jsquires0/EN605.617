@@ -1,9 +1,9 @@
 all: build
 build: assignment.exe
 
-assignment.o: assignment.cu
-	gcc -c assignment.c -o assignment.o
-cuda.o: assignment.cu
-	nvcc -c assignment.cu -L /usr/local/cuda/lib -o cuda.o
-assignment.exe: assignment.o cuda.o
-	nvcc -o assignment.exe assignment.o cuda.o
+kernels.o: kernels.cu
+	nvcc -c kernels.cu -L /usr/local/cuda/lib -o kernels.o
+main.o: main.cu
+	nvcc -c main.cu -L /usr/local/cuda/lib -o main.o
+assignment.exe: main.o kernels.o
+	nvcc -o assignment.exe main.o kernels.o

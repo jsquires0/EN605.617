@@ -57,10 +57,11 @@ void mod(int *pos, int *rnd, int *out)
 
 }
 
+    
 /* 
     Calls add, subtract, mult, and mod and performs calculations on gpu
 */
-extern "C" void doMath(int numBlocks, int totalThreads, int *pos, 
+extern "C" void doMathPageable(int numBlocks, int totalThreads, int *pos, 
                        int *rnd, int *added, int *subd, int *multd, int *moded)
 {
     int *gpu_pos, *gpu_rnd, *gpu_added, *gpu_subd, *gpu_multd, *gpu_moded;
