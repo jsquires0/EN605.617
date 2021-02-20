@@ -1,17 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void doMath(int numBlocks, int totalThreads, int *pos, 
+float doMath(int numBlocks, int totalThreads, int *pos, 
             int *rnd, int *added, int *subd, int *multd, 
             int *moded);
-
-__host__ cudaEvent_t get_time(void)
-{
-	cudaEvent_t time;
-	cudaEventCreate(&time);
-	cudaEventRecord(time);
-	return time;
-}
     
 /**
  * Allocates pageable memory for host's input and output arrays
@@ -20,6 +12,7 @@ void pageableMathAlloc(int totalThreads, int **pos,
                 int **rnd, int **added, int **subd, 
                 int **multd, int **moded)
 {
+    // allocate
     int *p, *r, *a, *s, *mu, *mo;
     p = (int*)malloc(totalThreads*sizeof(int));
     r = (int*)malloc(totalThreads*sizeof(int));
@@ -33,7 +26,8 @@ void pageableMathAlloc(int totalThreads, int **pos,
 	{
 		p[i] = i;                       
 		r[i] = rand() % 4;
-    } 
+    }
+    // update pointers                           
     *pos = p;
     *rnd = r;
     *added = a;
@@ -41,24 +35,64 @@ void pageableMathAlloc(int totalThreads, int **pos,
     *multd = mu;
     *moded = mo;
 }
+                                  
+/**
+ * Allocates pinned memory for hosts input and output arrays
+ */
+void pinnedMathAlloc(int totalThreads, int **pos,
+                int **rnd, int **added, int **subd, 
+                int **multd, int **moded)
+{
+    // allocate
+    int *p, *r, *a, *s, *mu, *mo;
+    cudaHostAlloc((void**)&p,
+                       totalThreads*sizeof(int),
+                       cudaHostAllocDefault);
+    cudaHostAlloc((void**)&r,
+                       totalThreads*sizeof(int),
+                       cudaHostAllocDefault);                             
+    cudaHostAlloc((void**)&a,
+                       totalThreads*sizeof(int),
+                       cudaHostAllocDefault);   
+    cudaHostAlloc((void**)&s,
+                       totalThreads*sizeof(int),
+                       cudaHostAllocDefault);   
+    cudaHostAlloc((void**)&mu,
+                       totalThreads*sizeof(int),
+                       cudaHostAllocDefault);   
+    cudaHostAlloc((void**)&mo,
+                       totalThreads*sizeof(int),
+                       cudaHostAllocDefault);
 
-void main_sub0(int numBlocks, int totalThreads)
+    // populate input arrays
+    for (int i=0; i<totalThreads; i++)
+	{
+		p[i] = i;                       
+		r[i] = rand() % 4;
+    }
+    // update pointers                           
+    *pos = p;
+    *rnd = r;
+    *added = a;
+    *subd = s;
+    *multd = mu;
+    *moded = mo;
+}                                 
+
+    
+    
+    
+void pageable_sub0(int numBlocks, int totalThreads)
 {
     
     int *pos, *rnd, *added, *subd, *multd, *moded;
     pageableMathAlloc(totalThreads, &pos, &rnd, &added, &subd, &multd, &moded);
-    cudaEvent_t start_time = get_time();
-    
+
     // add, subtract, mult, and mod the two input arrays
-    doMath(numBlocks, totalThreads, pos, rnd, added, subd, multd, moded);
-
-    cudaEvent_t end_time = get_time();
-	cudaEventSynchronize(end_time);
-	float delta = 0;
-	cudaEventElapsedTime(&delta, start_time, end_time);
-
-	printf("elapsed time with pageable mem: %3.1f ms\n", delta);
-                                  
+    // Time up copy
+    float elapsed;
+    elapsed = doMath(numBlocks, totalThreads, pos, rnd, added, subd, multd, moded);
+    printf("elapsed time with pageable mem: %3.3f ms\n", elapsed);                           
     // Save results
     FILE * outFile;
     outFile = fopen("computed_arrays.txt","w");
@@ -69,6 +103,30 @@ void main_sub0(int numBlocks, int totalThreads)
     }
     
 }
+
+void pinned_sub0(int numBlocks, int totalThreads)
+{
+    
+    int *pos, *rnd, *added, *subd, *multd, *moded;
+    pinnedMathAlloc(totalThreads, &pos, &rnd, &added, &subd, &multd, &moded);
+    
+    // add, subtract, mult, and mod the two input arrays
+    // Time up copy
+    float elapsed;
+    elapsed = doMath(numBlocks, totalThreads, pos, rnd, added, subd, multd, moded);
+    printf("elapsed time with pinned mem: %3.3f ms\n", elapsed);  
+
+                                  
+    // Save results
+    FILE * outFile;
+    outFile = fopen("computed_arrays.txt","w");
+    for (int i=0; i<totalThreads; i++)
+    {
+        fprintf(outFile, "%d\t %d\t %d\t %d\t %d\t %d\t \n", 
+                pos[i], rnd[i], added[i], subd[i], multd[i], moded[i]);
+    }
+    
+}                                  
 
 int main(int argc, char** argv)
 {
@@ -95,7 +153,7 @@ int main(int argc, char** argv)
 		printf("The total number of threads will be rounded up to %d\n", totalThreads);
 	}
     
-    main_sub0(numBlocks, totalThreads);
-        
+    pageable_sub0(numBlocks, totalThreads);
+    pinned_sub0(numBlocks, totalThreads);    
 	return EXIT_SUCCESS;
 }

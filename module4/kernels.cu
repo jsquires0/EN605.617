@@ -1,6 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+    
+__host__ cudaEvent_t get_time(void)
+{
+	cudaEvent_t time;
+	cudaEventCreate(&time);
+	cudaEventRecord(time);
+	return time;
+}
+    
 /*
 	Adds an array containing integers from 0 to totalThreads
 	to an array of random integers between [0,3] and stores the 
@@ -61,7 +70,7 @@ void mod(int *pos, int *rnd, int *out)
 /* 
     Calls add, subtract, mult, and mod and performs calculations on gpu
 */
-void doMath(int numBlocks, int totalThreads, int *pos, 
+float doMath(int numBlocks, int totalThreads, int *pos, 
                        int *rnd, int *added, int *subd, int *multd, int *moded)
 {
     int *gpu_pos, *gpu_rnd, *gpu_added, *gpu_subd, *gpu_multd, *gpu_moded;
@@ -73,13 +82,20 @@ void doMath(int numBlocks, int totalThreads, int *pos,
     cudaMalloc((void**)&gpu_subd, totalThreads * sizeof(int));
     cudaMalloc((void**)&gpu_multd, totalThreads * sizeof(int));
     cudaMalloc((void**)&gpu_moded, totalThreads * sizeof(int));
-                  
+    
+    cudaEvent_t start_time = get_time();
+    
     // copy inputs to gpu
     cudaMemcpy(gpu_pos, pos, totalThreads * sizeof(int), 
 				cudaMemcpyHostToDevice);
     cudaMemcpy(gpu_rnd, rnd, totalThreads * sizeof(int), 
 				cudaMemcpyHostToDevice);
     
+    cudaEvent_t end_time = get_time();
+	cudaEventSynchronize(end_time);
+	float delta = 0;
+	cudaEventElapsedTime(&delta, start_time, end_time);
+
     // compute results on gpu
 	add<<<numBlocks, totalThreads>>>(gpu_pos, gpu_rnd, gpu_added);
     subtract<<<numBlocks, totalThreads>>>(gpu_pos, gpu_rnd, gpu_subd);
@@ -103,5 +119,7 @@ void doMath(int numBlocks, int totalThreads, int *pos,
     cudaFree(gpu_subd);
     cudaFree(gpu_multd);
     cudaFree(gpu_moded);
-    
+    cudaEventDestroy(start_time);
+    cudaEventDestroy(end_time);
+    return delta;
 }
