@@ -1,16 +1,15 @@
-To run:
-make
-assignment.exe <total threads> <block size>
+The submission is divided into two separate targets:
+cipher_assignment.exe and math_assignment.exe
+Both are built with the same Makefile, and run with the same commands:
+
+*_assignment.exe <total threads> <block size>
 
 For example, executing
-assignment.exe 512 256
-will perform add, sub, mult, and mod on two arrays of size 512 using 512 threads and 2 blocks.
 
-Output is saved in computed_arrays.txt formatted as:
-input_arr1, input_arr2, added, subtracted, multiplied, mod'd
+cipher_assignment.exe 512 256
 
-Examples can be found in the saved_outputs directory
-  64 threads, 32 blocksize <computed_arrays_64_32.txt>
-  64 threads, 8 blocksize <computed_arrays_64_8.txt>
-  512 threads, 256 blocksize <computed_arrays_512_256.txt>
-  1024 threads, 256 blocksize <computed_arrays_1024_256.txt>
+will encrypt a random input array of 512 characters using the cipher. The calculation runs on 512 threads and 2 blocks twice: once using pageable host memory, and then again using pinned host memory.
+
+Timing results are printed to the console. The 
+host -> device transfer is timed, though there's no particular reason to choose this over device -> host. Both show
+the same result: pinned memory is 1.5-2x faster.

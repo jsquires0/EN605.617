@@ -1,0 +1,17 @@
+The main issue with this code is that the timing events are
+wrapped around the encrypt kernel, rather than around either
+the host->device or device->host Memcpy operations. 
+You can't test the performance delta between pinned and pageable memory
+without timing the actual memory transfers.
+
+Another issue with the code is the encrypt kernel function
+itself. 
+    First, the global MAX/MIN PRINTABLE variables are
+swapped, so NUM_ALPHA will end up being negative. The encryption
+still works, but it's a confusing naming convention. It's 
+also not clear why the offset value (key) is an array. If key only
+has one unique element, as a Caesar cipher should,
+then the array is wasteful. If key's elements vary with index,
+then it's not a Caesar cipher. NUM_ALPHA also should be MAX - MIN + 1.
+A corrected encrypt function can be found in my cipher.cu file.
+
