@@ -4,7 +4,7 @@
 #define MIN_PRINTABLE 32
 #define MAX_PRINTABLE 127
 #define PRINTABLE_RANGE (MAX_PRINTABLE - MIN_PRINTABLE) + 1
-#define OFFSET 5
+#define OFFSET -5
 
 /* forward declaration */
 float gpu_cipher(int numBlocks, int totalThreads, char *input_text,
@@ -16,9 +16,10 @@ __host__ cudaEvent_t get_time(void) {
     cudaEventRecord(time);
     return time;
 }
-
+                
 /**
- * Perform Caesar cipher on an array of characters in parallel
+ * Perform Caesar cipher on an array of characters in parallel.
+ * Passing in -OFFSET reverses the operation.
  */
 __global__ void encrypt(char *input_text, char *result) { 
     
@@ -33,36 +34,17 @@ __global__ void encrypt(char *input_text, char *result) {
     if (ascii < 32 || ascii > 127)
         printf("Enountered character outside of printable range");
     
-	unsigned int zeroed_ascii = ascii - MIN_PRINTABLE;
-
+	int zeroed_ascii = ascii - MIN_PRINTABLE;
+    signed int offset = OFFSET;
 	// Encrypt by adding the offset value and taking mod to wrap
-	int cipherchar = (zeroed_ascii + OFFSET) % PRINTABLE_RANGE + MIN_PRINTABLE;
-	result[idx] = (char) cipherchar;
+    int tmp = (zeroed_ascii + offset) % (PRINTABLE_RANGE);
+    // Handle negative operands..
+    int cipherchar = tmp < 0 ? (tmp + PRINTABLE_RANGE) : tmp;
+	cipherchar += MIN_PRINTABLE;
+	result[idx] = cipherchar;
 }
     
-/**
- * Reverse Caesar cipher on an array of characters, to recover original input.
- */
-__global__ void decrypt(char *input_text, char *result) { 
-    
-    // Calculate the current index
-    int idx = (blockIdx.x * blockDim.x) + threadIdx.x;
-     
-	/* 
-	 * Adjust value of text and key to be based at 0 
-	 * Printable ASCII starts at MIN_PRINTABLE, but 0 start is easier to work with 
-	 */ 
-    int ascii = input_text[idx];
-    if (ascii < 32 || ascii > 127)
-        printf("Enountered character outside of printable range");
-    
-	unsigned int zeroed_ascii = ascii - MIN_PRINTABLE;
 
-	// Encrypt by adding the offset value and taking mod to wrap
-	int cipherchar = (zeroed_ascii - OFFSET) % (PRINTABLE_RANGE) + MIN_PRINTABLE;
-	result[idx] = (char) cipherchar;
-}    
-    
 /**
  * Generates an array of random characters
  */
@@ -197,16 +179,23 @@ float gpu_cipher(int numBlocks, int totalThreads, char *input_text,
 
     // compute results on gpu
     encrypt<<<numBlocks, totalThreads/numBlocks>>>(gpu_in, gpu_out);
-
+    
     // copy back to cpu 
     cudaMemcpy(input_text, gpu_in, totalThreads * sizeof(char), 
     cudaMemcpyDeviceToHost);
     cudaMemcpy(result, gpu_out, totalThreads * sizeof(char), 
     cudaMemcpyDeviceToHost);
-
+    
     cudaEventDestroy(start_time);
     cudaEventDestroy(end_time);
-
+    
+    /* Turn this block on for verification
+    //for (int i=0; i<totalThreads; i++)
+    {
+        printf("input: %c %d \n", input_text[i], input_text[i]);
+        printf("result: %c %d \n", result[i], result[i]);
+    }*/    
+                                    
     return elapsed;
 }
        
