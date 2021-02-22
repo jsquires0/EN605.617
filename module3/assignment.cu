@@ -80,10 +80,10 @@ extern "C" void doMath(int numBlocks, int totalThreads, int *pos,
 				cudaMemcpyHostToDevice);
     
     // compute results on gpu
-	add<<<numBlocks, totalThreads>>>(gpu_pos, gpu_rnd, gpu_added);
-    subtract<<<numBlocks, totalThreads>>>(gpu_pos, gpu_rnd, gpu_subd);
-    mult<<<numBlocks, totalThreads>>>(gpu_pos, gpu_rnd, gpu_multd);
-    mod<<<numBlocks, totalThreads>>>(gpu_pos, gpu_rnd, gpu_moded);
+	add<<<numBlocks, totalThreads/numBlocks>>>(gpu_pos, gpu_rnd, gpu_added);
+    subtract<<<numBlocks, totalThreads/numBlocks>>>(gpu_pos, gpu_rnd, gpu_subd);
+    mult<<<numBlocks, totalThreads/numBlocks>>>(gpu_pos, gpu_rnd, gpu_multd);
+    mod<<<numBlocks, totalThreads/numBlocks>>>(gpu_pos, gpu_rnd, gpu_moded);
     
 	// copy back to cpu 
 	cudaMemcpy(added, gpu_added, totalThreads * sizeof(int), 
