@@ -4,7 +4,7 @@
 #define MIN_PRINTABLE 32
 #define MAX_PRINTABLE 127
 #define PRINTABLE_RANGE (MAX_PRINTABLE - MIN_PRINTABLE) + 1
-#define OFFSET -5
+#define OFFSET 5
 
 /* forward declaration */
 float gpu_cipher(int numBlocks, int totalThreads, char *input_text,
@@ -36,8 +36,10 @@ __global__ void encrypt(char *input_text, char *result) {
     
 	int zeroed_ascii = ascii - MIN_PRINTABLE;
     signed int offset = OFFSET;
+    
 	// Encrypt by adding the offset value and taking mod to wrap
     int tmp = (zeroed_ascii + offset) % (PRINTABLE_RANGE);
+    
     // Handle negative operands..
     int cipherchar = tmp < 0 ? (tmp + PRINTABLE_RANGE) : tmp;
 	cipherchar += MIN_PRINTABLE;
@@ -76,6 +78,7 @@ void pageableAlloc(int totalThreads, char **input_text,
     *input_text = in;
     *result = out;
 }
+    
 /**
  * Allocates pageable memory, calls cipher, and cleans up                             
  */
@@ -128,6 +131,7 @@ void pinnedAlloc(int totalThreads, char **input_text,
     *input_text = in;
     *result = out;
 }
+    
 /**
  * Allocates pinned memory, calls cipher, and cleans up                             
  */
@@ -155,6 +159,7 @@ void pinned_main(int numBlocks, int totalThreads) {
 
     printf("Host -> device transfer with pinned mem: %3.3f ms\n", elapsed);                           
 }
+    
 /**
  * Calls cipher kernel and executes on gpu. Host -> device memory transfer
  * is timed.                             

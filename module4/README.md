@@ -12,4 +12,4 @@ will encrypt a random input array of 512 characters using the cipher. The calcul
 
 Timing results are printed to the console. The 
 host -> device transfer is timed, though there's no particular reason to choose this over device -> host. Both show
-the same result: pinned memory is 1.5-2x faster.
+the same result: pinned memory is around 2x faster for large transfers
