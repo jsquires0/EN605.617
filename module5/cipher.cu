@@ -3,7 +3,7 @@
 
 #define MIN_PRINTABLE 32
 #define MAX_PRINTABLE 127
-#define PRINTABLE_RANGE (MAX_PRINTABLE - MIN_PRINTABLE) + 1
+#define PRINTABLE_RANGE (MAX_PRINTABLE - MIN_PRINTABLE + 1)
 #define OFFSET 5
 
 /* forward declaration */
