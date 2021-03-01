@@ -2,14 +2,17 @@ The submission is divided into two separate targets:
 cipher_assignment.exe and math_assignment.exe
 Both are built with the same Makefile, and run with the same commands:
 
-*_assignment.exe <total threads> <block size>
+*_assignment.exe
 
 For example, executing
 
-cipher_assignment.exe 512 256
+cipher_assignment.exe 
 
-will encrypt a random input array of 512 characters using the cipher. The calculation runs on 512 threads and 2 blocks twice: once using pageable host memory, and then again using pinned host memory.
+will encrypt a random input array of TOTALTHREADS characters using the cipher. 
+The calculation runs on TOTALTHREADS threads and TOTALTHREADS/THREADS_IN_BLOCK 
+blocks once using constant memory, and then again using shared memory.
 
-Timing results are printed to the console. The 
-host -> device transfer is timed, though there's no particular reason to choose this over device -> host. Both show
-the same result: pinned memory is around 1.5-2x faster for large transfers
+The values of TOTALTHREADS and THREADS_IN_BLOCK can be found at the top of
+cipher.cu and math_main.cu. TOTALTHREADS must be divisible by THREADS_IN_BLOCK.
+
+Kernel execution times are printed to the console.
