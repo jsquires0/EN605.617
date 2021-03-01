@@ -85,8 +85,6 @@ float const_gpu_cipher(int numBlocks, char *input_text, char *result,
 
     // copy data from host to gpu
     cudaMemcpyToSymbol(const_in_text, input_text, TOTALTHREADS * sizeof(char));
-    cudaMemcpy(gpu_out, result, TOTALTHREADS * sizeof(char), 
-    cudaMemcpyHostToDevice);
 
      // Begin timing
     cudaEvent_t start_time = get_time();
@@ -105,7 +103,7 @@ float const_gpu_cipher(int numBlocks, char *input_text, char *result,
     cudaMemcpyDeviceToHost);
     
     cudaEventDestroy(start_time);
-    cudaEventDestroy(end_time);
+    cudaEventDestroy(end_time);    
                                     
     return elapsed;
 }
@@ -182,8 +180,6 @@ void const_main(int numBlocks){
 
     cudaMemcpy(gpu_in, input_text, totalThreads * sizeof(char), 
     cudaMemcpyHostToDevice);
-    cudaMemcpy(gpu_out, result, totalThreads * sizeof(char), 
-    cudaMemcpyHostToDevice);
     
      // Begin timing
     cudaEvent_t start_time = get_time();
@@ -204,8 +200,8 @@ void const_main(int numBlocks){
     cudaMemcpyDeviceToHost);
     
     cudaEventDestroy(start_time);
-    cudaEventDestroy(end_time);
-                                    
+    cudaEventDestroy(end_time); 
+                                  
     return elapsed;
 } 
 /**
@@ -232,7 +228,7 @@ void shared_main(int numBlocks, int totalThreads) {
     cudaFree(gpu_out);
     cudaFree(input_text);
     cudaFree(result);
-
+    
     printf("Shared memory elapsed: %3.3f ms\n", elapsed);                           
 }
        

@@ -3,8 +3,8 @@
 
 #define TOTALTHREADS 1024
 #define THREADS_IN_BLOCK 128
-__constant__ char const_pos[TOTALTHREADS];
-__constant__ char const_rnd[TOTALTHREADS];
+__constant__ int const_pos[TOTALTHREADS];
+__constant__ int const_rnd[TOTALTHREADS];
 
 __host__ cudaEvent_t get_time(void) {
 	cudaEvent_t time;
@@ -20,28 +20,28 @@ __host__ cudaEvent_t get_time(void) {
     int **added, int **subd, 
     int **multd, int **moded)
 {
-// allocate
-int *p, *r, *a, *s, *mu, *mo;
-p = (int*)malloc(TOTALTHREADS*sizeof(int));
-r = (int*)malloc(TOTALTHREADS*sizeof(int));
-a = (int*)malloc(TOTALTHREADS*sizeof(int));
-s = (int*)malloc(TOTALTHREADS*sizeof(int));
-mu = (int*)malloc(TOTALTHREADS*sizeof(int));
-mo = (int*)malloc(TOTALTHREADS*sizeof(int));
+    // allocate
+    int *p, *r, *a, *s, *mu, *mo;
+    p = (int*)malloc(TOTALTHREADS*sizeof(int));
+    r = (int*)malloc(TOTALTHREADS*sizeof(int));
+    a = (int*)malloc(TOTALTHREADS*sizeof(int));
+    s = (int*)malloc(TOTALTHREADS*sizeof(int));
+    mu = (int*)malloc(TOTALTHREADS*sizeof(int));
+    mo = (int*)malloc(TOTALTHREADS*sizeof(int));
 
-// populate input arrays
-for (int i=0; i<TOTALTHREADS; i++)
-{
-p[i] = i;                       
-r[i] = rand() % 4;
-}
-// update pointers                           
-*pos = p;
-*rnd = r;
-*added = a;
-*subd = s;
-*multd = mu;
-*moded = mo;
+    // populate input arrays
+    for (int i=0; i<TOTALTHREADS; i++)
+    {
+        p[i] = i;                       
+        r[i] = rand() % 4;
+    }
+    // update pointers                           
+    *pos = p;
+    *rnd = r;
+    *added = a;
+    *subd = s;
+    *multd = mu;
+    *moded = mo;
 }
 
 // ******************************** SHARED ******************************* // 
@@ -53,8 +53,8 @@ r[i] = rand() % 4;
 __global__
 void sharedAdd(int *pos, int *rnd, int *out)
 {
-	__shared__ char shared_pos[THREADS_IN_BLOCK];
-	__shared__ char shared_rnd[THREADS_IN_BLOCK];
+	__shared__ int shared_pos[THREADS_IN_BLOCK];
+	__shared__ int shared_rnd[THREADS_IN_BLOCK];
 
 	int idx = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int idx_in_block = threadIdx.x;
@@ -73,8 +73,8 @@ void sharedAdd(int *pos, int *rnd, int *out)
 __global__
 void sharedSubtract(int *pos, int *rnd, int *out)
 {
-	__shared__ char shared_pos[THREADS_IN_BLOCK];
-	__shared__ char shared_rnd[THREADS_IN_BLOCK];
+	__shared__ int shared_pos[THREADS_IN_BLOCK];
+	__shared__ int shared_rnd[THREADS_IN_BLOCK];
 
 	int idx = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int idx_in_block = threadIdx.x;
@@ -93,8 +93,8 @@ void sharedSubtract(int *pos, int *rnd, int *out)
 __global__
 void sharedMult(int *pos, int *rnd, int *out)
 {
-	__shared__ char shared_pos[THREADS_IN_BLOCK];
-	__shared__ char shared_rnd[THREADS_IN_BLOCK];
+	__shared__ int shared_pos[THREADS_IN_BLOCK];
+	__shared__ int shared_rnd[THREADS_IN_BLOCK];
 
 	int idx = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int idx_in_block = threadIdx.x;
@@ -114,8 +114,8 @@ void sharedMult(int *pos, int *rnd, int *out)
 __global__
 void sharedMod(int *pos, int *rnd, int *out)
 {
-	__shared__ char shared_pos[THREADS_IN_BLOCK];
-	__shared__ char shared_rnd[THREADS_IN_BLOCK];
+	__shared__ int shared_pos[THREADS_IN_BLOCK];
+	__shared__ int shared_rnd[THREADS_IN_BLOCK];
 
 	int idx = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int idx_in_block = threadIdx.x;
@@ -252,7 +252,7 @@ void constMod(int *out)
 */
 float const_doMath(int numBlocks, int totalThreads, int *pos, 
                        int *rnd, int *added, int *subd, int *multd, int *moded)
-{
+{   
     int *gpu_added, *gpu_subd, *gpu_multd, *gpu_moded;
 	//allocate gpu memory
     cudaMalloc((void**)&gpu_added, totalThreads * sizeof(int));
@@ -282,7 +282,7 @@ float const_doMath(int numBlocks, int totalThreads, int *pos,
     cudaMemcpy(subd, gpu_subd,totalThreads*sizeof(int), cudaMemcpyDeviceToHost); 
     cudaMemcpy(multd,gpu_multd,totalThreads*sizeof(int),cudaMemcpyDeviceToHost); 
     cudaMemcpy(moded,gpu_moded,totalThreads*sizeof(int),cudaMemcpyDeviceToHost); 
-                        
+               
     // clean up                           
 	cudaFree(gpu_added); cudaFree(gpu_subd); 
 	cudaFree(gpu_multd); cudaFree(gpu_moded);
