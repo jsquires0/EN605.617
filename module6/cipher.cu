@@ -6,10 +6,8 @@
 #define PRINTABLE_RANGE (MAX_PRINTABLE - MIN_PRINTABLE + 1)
 #define OFFSET 5
 
-#define TOTALTHREADS 1024
+int TOTALTHREADS = 128;
 #define THREADS_IN_BLOCK 128
-__constant__ char const_in_text[TOTALTHREADS];
-
 
 __host__ cudaEvent_t get_time(void) {
     cudaEvent_t time;
@@ -49,22 +47,24 @@ void fillRandArray(char *input_text, int totalThreads) {
     *result = out;
 }
 
-// ******************************** CONSTANT ******************************* //                                
+// ******************************** REGISTER ******************************* //                                
 
 /**
  * Perform Caesar cipher on an array of characters in parallel.
  * Passing in -OFFSET reverses the operation.
  */
- __global__ void constant_encrypt(char *result) { 
+ __global__ void register_encrypt(char *gpu_data) { 
     
     // Calculate the current index
     int idx = (blockIdx.x * blockDim.x) + threadIdx.x;
-     
+    
+    char in_tmp = gpu_data[idx];
+    
 	/* 
 	 * Adjust value of text and key to be based at 0 
 	 * Printable ASCII starts at MIN_PRINTABLE, but 0 start is easier to work with 
 	 */
-    int ascii = const_in_text[idx];
+    int ascii = in_tmp;
     if (ascii < 32 || ascii > 127)
         printf("Enountered character outside of printable range");
     
@@ -77,20 +77,16 @@ void fillRandArray(char *input_text, int totalThreads) {
     // Handle negative operands..
     int cipherchar = tmp < 0 ? (tmp + PRINTABLE_RANGE) : tmp;
 	cipherchar += MIN_PRINTABLE;
-	result[idx] = cipherchar;
+	gpu_data[idx] = cipherchar;
 }
 
-float const_gpu_cipher(int numBlocks, char *input_text, char *result, 
-                        char *gpu_out) {
-
-    // copy data from host to gpu
-    cudaMemcpyToSymbol(const_in_text, input_text, TOTALTHREADS * sizeof(char));
+__host__ float register_gpu_cipher(int numBlocks, char *gpu_data) {
 
      // Begin timing
     cudaEvent_t start_time = get_time();
                             
     // compute results on gpu
-    constant_encrypt<<<numBlocks, TOTALTHREADS/numBlocks>>>(gpu_out);
+    register_encrypt<<<numBlocks, TOTALTHREADS/numBlocks>>>(gpu_data);
     
     // End timing
     cudaEvent_t end_time = get_time();
@@ -98,40 +94,42 @@ float const_gpu_cipher(int numBlocks, char *input_text, char *result,
     float elapsed = 0;
     cudaEventElapsedTime(&elapsed, start_time, end_time);
     
-    // copy back to cpu 
-    cudaMemcpy(result, gpu_out, TOTALTHREADS * sizeof(char), 
-    cudaMemcpyDeviceToHost);
-    
     cudaEventDestroy(start_time);
     cudaEventDestroy(end_time);    
-                                    
+    
     return elapsed;
 }
 /**
- * Allocates memory, calls cipher, and cleans up. Input array is stored
- * in constant memory.                             
+ * Allocates memory, calls cipher, and cleans up.                             
  */
-void const_main(int numBlocks){
+__host__ void register_main(int numBlocks){
+
+    char input_text[TOTALTHREADS];
+    char result[TOTALTHREADS];
 
     // Initialize input array with random characters
-    char *input_text, *result;
-    Alloc(&input_text, &result);
+    fillRandArray(input_text, TOTALTHREADS);
     
-    // Allocate gpu memory. Don't need malloc gpu_in for constant memory
-    char *gpu_out;
-    cudaMalloc((void**)&gpu_out, TOTALTHREADS * sizeof(char));
+    // Allocate gpu memory
+    char *gpu_data;
+    cudaMalloc((void**)&gpu_data, TOTALTHREADS * sizeof(char));
+
+    // copy data from host to gpu
+    cudaMemcpy(gpu_data, input_text, TOTALTHREADS * sizeof(char),
+    cudaMemcpyHostToDevice);
 
     // Perform encryption
     float elapsed;
-    elapsed = const_gpu_cipher(numBlocks,
-                    input_text, result, gpu_out);
-                        
-    // clean up 
-    cudaFree(gpu_out);
-    free(input_text);
-    free(result);
+    elapsed = register_gpu_cipher(numBlocks, gpu_data);
 
-    printf("Constant memory elapsed: %3.3f ms\n", elapsed);                           
+    // copy back to cpu 
+    cudaMemcpy(result, gpu_data, TOTALTHREADS * sizeof(char), 
+    cudaMemcpyDeviceToHost);
+                                    
+    // clean up 
+    cudaFree(gpu_data);
+    cudaDeviceReset();
+    printf("Register memory elapsed: %3.3f ms\n", elapsed);                           
 }
 
 // ******************************** SHARED ******************************* //
@@ -228,6 +226,7 @@ void shared_main(int numBlocks, int totalThreads) {
     cudaFree(gpu_out);
     cudaFree(input_text);
     cudaFree(result);
+    cudaDeviceReset();
     
     printf("Shared memory elapsed: %3.3f ms\n", elapsed);                           
 }
@@ -236,15 +235,22 @@ int main(int argc, char** argv) {
 
 	int numBlocks = TOTALTHREADS/THREADS_IN_BLOCK;
     
-	// validate command line arguments
+	// validate arguments
 	if (TOTALTHREADS % THREADS_IN_BLOCK != 0) {
 
 		printf("Warning: Total thread count is not evenly divisible by the block size\n");
 		printf("Please update and re-rerun \n");
     }
-    
-    const_main(numBlocks); 
+    // test one
+    register_main(numBlocks); 
     shared_main(numBlocks, TOTALTHREADS);
+
+    TOTALTHREADS *= 10;
+    numBlocks *= 10;
+    // test two
+    register_main(numBlocks); 
+    shared_main(numBlocks, TOTALTHREADS);
+    
 
 	return EXIT_SUCCESS;
 }
