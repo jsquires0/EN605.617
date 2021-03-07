@@ -185,7 +185,7 @@ __host__ void register_main(int numBlocks){
     // compute results on gpu
     shared_encrypt<<<numBlocks, totalThreads/numBlocks>>>(gpu_in, gpu_out);
     
-     // End timing
+    // End timing
     cudaEvent_t end_time = get_time();
     cudaEventSynchronize(end_time);
     float elapsed = 0;
