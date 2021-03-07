@@ -134,8 +134,9 @@ __global__
 void regAdd(int *pos, int *rnd, int *out)
 {
 	int thread_idx = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int tmp = pos[thread_idx] + rnd[thread_idx];
-	out[thread_idx] = tmp;
+	int p_tmp = pos[thread_idx];
+	int r_tmp = rnd[thread_idx];
+	out[thread_idx] = p_tmp + r_tmp;
 }
  
 /*
@@ -147,8 +148,9 @@ __global__
 void regSubtract(int *pos, int *rnd, int *out)
 {
 	int thread_idx = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int tmp = pos[thread_idx] - rnd[thread_idx];
-	out[thread_idx] = tmp;
+	int p_tmp = pos[thread_idx];
+	int r_tmp = rnd[thread_idx];
+	out[thread_idx] = p_tmp - r_tmp;
 }
       
 /*
@@ -160,8 +162,9 @@ __global__
 void regMult(int *pos, int *rnd, int *out)
 {
 	int thread_idx = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int tmp = pos[thread_idx] * rnd[thread_idx];
-	out[thread_idx] = tmp;
+	int p_tmp = pos[thread_idx];
+	int r_tmp = rnd[thread_idx];
+	out[thread_idx] = p_tmp * r_tmp;
 }
    
 /*
@@ -174,8 +177,9 @@ __global__
 void regMod(int *pos, int *rnd, int *out)
 {
 	int thread_idx = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int tmp = pos[thread_idx] % rnd[thread_idx];
-	out[thread_idx] = tmp;
+	int p_tmp = pos[thread_idx];
+	int r_tmp = rnd[thread_idx];
+	out[thread_idx] = p_tmp % r_tmp;
 }
 /*
 	Execute kernels using register or shared memory
@@ -244,7 +248,7 @@ float doMath(int use_reg, int numBlocks, int totalThreads, int *pos,
 }
 
 /* 
-    Executes all math kernels using register memory
+    Wrapper to save output to file and print timing metrics
 */
 void sub_main(int use_reg, int numBlocks, int totalThreads)
 {
@@ -279,7 +283,8 @@ void sub_main(int use_reg, int numBlocks, int totalThreads)
 }
 
 /* 
-    Executes all math kernels using register and shared memory
+	Calls all math kernels using either register or shared memory for
+	two sets of thread and block sizes.
 */
 int main(int argc, char** argv) {
 
@@ -289,7 +294,7 @@ int main(int argc, char** argv) {
 	if (TOTALTHREADS % THREADS_IN_BLOCK != 0) {
 
 		printf("Warning: Total thread count is not evenly divisible by the block size\n");
-		printf("Please update and re-rerun \n");
+		printf("Please update and re-run \n");
 	}
 	int use_reg = 1;
     // test one

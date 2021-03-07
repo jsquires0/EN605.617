@@ -1,0 +1,32 @@
+I find this code frustrating to read. Aside from exceeding the
+char per line and occasionally the function length guidelines,
+I think all of the nested short 2-3 line functions make the code
+unreadable without significant effort. 
+This is further complicated by the handful of different array size
+variables and the way they're used to index into arrays.
+
+For example, the line:
+	atomicAdd(&result_mat[index / NUM_COLS], var_mat[index] * shared_coeff_mat[index % NUM_COLS]);
+has three arrays, all accessed differently, yet by the function description 
+it's simply computing y = m * x. Is this complexity intentional, does it have
+a purpose?
+
+The lack of readability (and the fact this doesn't compile
+for me when run in vocareum) makes it hard to assess whether or not
+there's a significant bug here or not. 
+For example, In linear_multiply_SHARED_mem_host a host array of size
+NUM_REGISTER_COEFF is malloc'd, and then copied to 
+a device array of size NUM_SHARED_COEFF (twice as large). 
+
+At first I thought maybe this was a mistake,
+but calc_shared_mem claims "Threads in the top half otf the 
+coeff_mat use one set of coefficients, while threads in the bottom half 
+use an alternate set" which may imply it's intentional,
+but based on the variable 
+    unsigned int padding = (index / ((NUM_COLS*NUM_ROWS) / 2))*NUM_COLS;
+which is used without explanation: I have no idea if the coefficients
+being stored in shared memory are correct. I don't know if most of this
+code is correct because it's difficult to follow.
+
+
+
