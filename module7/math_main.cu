@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int TOTAL_THREADS 8192
-int BLOCK_SIZE 128
-int BATCH_SIZE 1024
+int TOTAL_THREADS = 8192;
+int BLOCK_SIZE = 128;
+int BATCH_SIZE = 1024;
 
 float doMath(cudaStream_t stream_0, cudaStream_t stream_1, int totalThreads, 
             int batchSize, int blockSize, int *pos, 
@@ -72,35 +72,12 @@ void pinnedMathAlloc(int totalThreads, int **pos, int **rnd, int **added,
 }                                 
 
        
-void pageable_sub(int numBlocks, int totalThreads)
+void pageable_sub(int totalThreads, int blockSize, int batchSize)
 {
-    
+    // allocate pageable host memory
     int *pos, *rnd, *added, *subd, *multd, *moded;
     pageableMathAlloc(totalThreads, &pos, &rnd, &added, &subd, &multd, &moded);
-
-    // add, subtract, mult, and mod the two input arrays
-
-    float elapsed;
-    elapsed = doMath(numBlocks, totalThreads, pos, rnd, added, subd, multd, moded);
-    printf("Host -> device transfer with pageable mem: %3.3f ms\n", elapsed);                           
-    // Save results
-    FILE * outFile;
-    outFile = fopen("computed_arrays.txt","w");
-    for (int i=0; i<totalThreads; i++)
-    {
-        fprintf(outFile, "%d\t %d\t %d\t %d\t %d\t %d\t \n", 
-                pos[i], rnd[i], added[i], subd[i], multd[i], moded[i]);
-    }
     
-}
-
-void pinned_sub(int totalThreads, int blockSize, int batchSize)
-{
-    // allocate host memory
-    int *pos, *rnd, *added, *subd, *multd, *moded;
-    pinnedMathAlloc(totalThreads, &pos, &rnd, &added, &subd, &multd, &moded);
-   
-
     // initialize streams
     cudaDeviceProp prop;
     int whichDevice; 
@@ -116,8 +93,8 @@ void pinned_sub(int totalThreads, int blockSize, int batchSize)
     float elapsed;
     elapsed = doMath(stream_0, stream_1, totalThreads, batchSize, blockSize, 
                      pos, rnd, added, subd, multd, moded);
-    printf("Host -> device transfer with pinned mem: %3.3f ms\n", elapsed);  
-                       
+    printf("Host -> device transfer with pageable mem: %3.3f ms\n", elapsed);    
+
     // Save results
     FILE * outFile;
     outFile = fopen("computed_arrays.txt","w");
@@ -126,8 +103,40 @@ void pinned_sub(int totalThreads, int blockSize, int batchSize)
         fprintf(outFile, "%d\t %d\t %d\t %d\t %d\t %d\t \n", 
                 pos[i], rnd[i], added[i], subd[i], multd[i], moded[i]);
     }
+                                  
+    cudaFreeHost(pos); 
+    cudaFreeHost(rnd);
+    
+}
+
+void pinned_sub(int totalThreads, int blockSize, int batchSize)
+{
+    // allocate host memory
+    int *pos, *rnd, *added, *subd, *multd, *moded;
+    pinnedMathAlloc(totalThreads, &pos, &rnd, &added, &subd, &multd, &moded);
+   
+    // initialize streams
+    cudaDeviceProp prop;
+    int whichDevice; 
+
+    cudaGetDeviceCount( &whichDevice); 
+    cudaGetDeviceProperties( &prop, whichDevice); 
+
+    cudaStream_t stream_0, stream_1; 
+    cudaStreamCreate(&stream_0); cudaStreamCreate(&stream_1);
+
+    // add, subtract, mult, and mod the two input arrays
+    // Time host -> device, kernel execution, device -> host
+    float elapsed;
+    elapsed = doMath(stream_0, stream_1, totalThreads, batchSize, blockSize, 
+                     pos, rnd, added, subd, multd, moded);
+
+    printf("Host -> device transfer with pinned mem: %3.3f ms\n", elapsed);
+    cudaFreeHost(pos); 
+    cudaFreeHost(rnd);
     
 }                                  
+
 /* 
     Calls all math kernels using either pinned or pageable host memory,
     two sets of thread and block sizes. Uses two cuda streams so data may
@@ -143,13 +152,13 @@ int main(int argc, char** argv)
 		printf("Please update and re-run \n");
 	}
     
-    pageable_sub(numBlocks, totalThreads);
+    pageable_sub(TOTAL_THREADS, BLOCK_SIZE, BATCH_SIZE); 
     pinned_sub(TOTAL_THREADS, BLOCK_SIZE, BATCH_SIZE); 
     
     TOTAL_THREADS *= 2;
     BLOCK_SIZE *= 2;
 
-    pageable_sub(numBlocks, totalThreads);
+    pageable_sub(TOTAL_THREADS, BLOCK_SIZE, BATCH_SIZE); 
     pinned_sub(TOTAL_THREADS, BLOCK_SIZE, BATCH_SIZE); 
 
 	return EXIT_SUCCESS;
