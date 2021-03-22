@@ -1,22 +1,20 @@
-math_assignment.exe is built with the makefile and run with the command:
+The submission is divided into two separate targets:
+cuBLAS_assignment.cu and cuSPARSE_assignment.cu
+Both are built with the same Makefile, and run with the same commands:
 
-math_assignment.exe
+*_assignment.exe
 
-The calculation runs on 4096 threads and 16 blocks twice: once using pageable 
-host memory, and then again using pinned host memory. This is done
-for two sets of total threads and blocksize combinations. Data is processed
-on two cuda streams, using batch sizes of 1024.
+cuBLAS_assignment.cu 
+computes the matrix multiplication A*B = C using cublas for random matrices A, B.
 
-Timing results are printed to the console for:
+cuSPARSE_assignment.cu
+Takes a half filled dense matrix A and converts it into CSR sparse format
+with cusparse.
 
-TOTAL_THREADS = 8192, BLOCK_SIZE = 128
+For both .exe's, kernel execution times are printed to the console for two
+input sizes for both pageable and pinned host memory
 
-and
-
-TOTAL_THREADS = 16384, BLOCK_SIZE = 256
-
-Note totalthreads MUST be a multiple of the batch size, 
-and blocksize should be a divisor of batch size.
-
-Since using multiple cuda streams in parallel requires pinned host memory, 
-the pageable implementation is upwards of 2x slower.
+NOTE:: I wasn't able to get cuSPARSE_assignment.cu to compile on vocareum. Some 
+of the cusparse functions used are only supported by more recent versions
+of cuda. I successfully compiled and ran cuSPARSE_assignment.cu on a cuda 11.2
+system.

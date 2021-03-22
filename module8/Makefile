@@ -1,9 +1,8 @@
 all: build
-build: math_assignment.exe
+build: cuSPARSE_assignment.exe cuBLAS_assignment.exe
 
-math_kernels.o: math_kernels.cu
-	nvcc -c math_kernels.cu -L /usr/local/cuda/lib -o math_kernels.o
-math_main.o: math_main.cu
-	nvcc -c math_main.cu -L /usr/local/cuda/lib -o math_main.o
-math_assignment.exe: math_main.o math_kernels.o
-	nvcc -o math_assignment.exe math_main.o math_kernels.o
+cuSPARSE_assignment.exe: cuSPARSE_assignment.cu
+	nvcc cuSPARSE_assignment.cu -lcudart -lcuda -lcusparse -I common/inc -o cuSPARSE_assignment.exe
+
+cuBLAS_assignment.exe: cuBLAS_assignment.cu
+	nvcc cuBLAS_assignment.cu -lcudart -lcuda -lcublas -lcurand -I common/inc -o cuBLAS_assignment.exe

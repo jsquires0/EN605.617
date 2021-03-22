@@ -1,12 +1,19 @@
 // Computes A*B = C with cuBLAS. A, B, C are NxN matrices
 #include <stdio.h>
 #include <stdlib.h>
-#include <cuBLAS.h>
+#include <cublas_v2.h>
 #include <curand.h>
 #include <curand_kernel.h>
 
 int N = 128;
 
+__host__ cudaEvent_t get_time(void) {
+	cudaEvent_t time;
+	cudaEventCreate(&time);
+	cudaEventRecord(time);
+	return time;
+}
+    
 /**
  * Allocates pageable memory for host's input and output arrays
  */
@@ -56,10 +63,9 @@ void square_matrix_multiplication(int use_pinned, int N)
     curandGenerateUniform(rng, gpu_A, N*N);
     curandGenerateUniform(rng, gpu_B, N*N);
    
-    cublasHandle_t = handle; cublasCreate(&handle);
+    cublasHandle_t handle; cublasCreate(&handle);
     // cuBLAS SGEMM computes (k_1 * A) * B + (k_2 * C)
     float k_1 = 1.0f; float k_2 = 0.0f;
-
     // start timing of kernel + device -> host transfer
     cudaEvent_t start_time = get_time();
     cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N, &k_1, 
@@ -75,7 +81,8 @@ void square_matrix_multiplication(int use_pinned, int N)
 	cudaEventSynchronize(end_time);
 	float delta = 0;
     cudaEventElapsedTime(&delta, start_time, end_time);
-    printf("Matmul with pageable mem: %3.3f ms\n", delta);  
+     use_pinned ? printf("Matmul with pinned mem: %3.3f ms\n", delta) : 
+                  printf("Matmul with pageable mem: %3.3f ms\n", delta); 
 
     // cleanup
     cudaFreeHost(A); cudaFreeHost(B); cudaFreeHost(C);
