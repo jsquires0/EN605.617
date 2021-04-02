@@ -15,6 +15,7 @@ __host__ cudaEvent_t get_time(void) {
 }
 /*
  * This function uses NPP to mirror an input image along the vertical axis.
+ * Adapted from the provided boxFilterNPP.cpp code.
  */
 int main(int argc, char *argv[])
 {   // Find input image filepath
