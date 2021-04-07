@@ -28,9 +28,9 @@
 
 
 ///
-//  Constants
+//  Data size
 //
-const int ARRAY_SIZE = 1000;
+int ARRAY_SIZE = 1000;
 
 ///
 //  Create an OpenCL context on the first available platform using
@@ -182,12 +182,26 @@ cl_program CreateProgram(cl_context context, cl_device_id device, const char* fi
 //  and b (input)
 //
 bool CreateMemObjects(cl_context context, cl_mem memObjects[7],
-                      float *a, float *b)
+                      float *a, float *b, int use_pinned)
 {
-    memObjects[0] = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                   sizeof(float) * ARRAY_SIZE, a, NULL);
-    memObjects[1] = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                   sizeof(float) * ARRAY_SIZE, b, NULL);
+    if (use_pinned)
+    {
+        memObjects[0] = clCreateBuffer(context, CL_MEM_READ_ONLY | 
+                                       CL_MEM_ALLOC_HOST_PTR,
+                                       sizeof(float) * ARRAY_SIZE, a, NULL);
+        memObjects[1] = clCreateBuffer(context, CL_MEM_READ_ONLY | 
+                                       CL_MEM_ALLOC_HOST_PTR,
+                                       sizeof(float) * ARRAY_SIZE, b, NULL);
+    }
+    else
+    {
+        memObjects[0] = clCreateBuffer(context, CL_MEM_READ_ONLY | 
+                                       CL_MEM_COPY_HOST_PTR,
+                                       sizeof(float) * ARRAY_SIZE, a, NULL);
+        memObjects[1] = clCreateBuffer(context, CL_MEM_READ_ONLY | 
+                                       CL_MEM_COPY_HOST_PTR,
+                                       sizeof(float) * ARRAY_SIZE, b, NULL);
+    }
     memObjects[2] = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                    sizeof(float) * ARRAY_SIZE, NULL, NULL);
     memObjects[3] = clCreateBuffer(context, CL_MEM_READ_WRITE,
@@ -313,9 +327,9 @@ void printResults(float *addOut, float *subOut, float *multOut, float *modOut,
 }
 ///
 //	main() for openCL Math example. Computes add, sub, mult, mod, and pow
-//  on two arrays twice: once using pageable and once with pinned host memory.
+//  on two arrays using either pinned or pageable host memory
 //
-int main(int argc, char** argv)
+int memTest(int use_pinned)
 {
     cl_context context = 0;
     cl_command_queue commandQueue = 0;
@@ -346,7 +360,7 @@ int main(int argc, char** argv)
         b[i] = (float)(rand() % 4);
     }
 
-    if (!CreateMemObjects(context, memObjects, a, b)){ return 1;}
+    if (!CreateMemObjects(context, memObjects, a, b, use_pinned)){ return 1;}
 
     // Create OpenCL kernels
     add_kernel = clCreateKernel(program, "add_kernel", NULL);
@@ -365,7 +379,8 @@ int main(int argc, char** argv)
     // end timing
     clock_t end = clock();
     double elapsed = double(end - start)/CLOCKS_PER_SEC;
-    std::cout << "Execution time: " << elapsed << "\n" << std::endl;
+    use_pinned ? std::cout << "Pinned execution time: " << elapsed << "\n" << std::endl
+               : std::cout << "Pageable execution time: " << elapsed << "\n" << std::endl;
 
     // Print to file
     printResults(addOut, subOut, multOut, modOut, powOut);
@@ -376,4 +391,18 @@ int main(int argc, char** argv)
     return 0;
 }
 
+/*
+ *	Calls test function once using pageable and once with pinned host memory for
+ *  two sets of input data sizes.
+ */
+int main(int argc, char** argv)
+{
+    int use_pinned = 1;
+    memTest(use_pinned);
+    memTest(!use_pinned);
+
+    ARRAY_SIZE *= 2;
+    memTest(use_pinned);
+    memTest(!use_pinned);
+}
 
