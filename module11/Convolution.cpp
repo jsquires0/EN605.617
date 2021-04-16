@@ -30,33 +30,41 @@
 #endif
 
 // Constants
-const unsigned int inputSignalWidth  = 8;
-const unsigned int inputSignalHeight = 8;
+const unsigned int inputSignalWidth  = 49;
+const unsigned int inputSignalHeight = 49;
 
-cl_uint inputSignal[inputSignalHeight][inputSignalWidth] =
+const unsigned int maskWidth  = 7;
+const unsigned int maskHeight = 7;
+
+cl_float mask[maskHeight][maskWidth] =
 {
-	{3, 1, 1, 4, 8, 2, 1, 3},
-	{4, 2, 1, 1, 2, 1, 2, 3},
-	{4, 4, 4, 4, 3, 2, 2, 2},
-	{9, 8, 3, 8, 9, 0, 0, 0},
-	{9, 3, 3, 9, 0, 0, 0, 0},
-	{0, 9, 0, 8, 0, 0, 0, 0},
-	{3, 0, 8, 8, 9, 4, 4, 4},
-	{5, 9, 8, 1, 8, 1, 1, 1}
+	{0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25},
+	{0.25, 0.50, 0.50, 0.50, 0.50, 0.50, 0.25},
+	{0.25, 0.50, 0.75, 0.75, 0.75, 0.55, 0.25},
+	{0.25, 0.50, 0.75, 1.00, 0.75, 0.50, 0.25},
+	{0.25, 0.50, 0.75, 0.75, 0.75, 0.50, 0.25},
+	{0.25, 0.50, 0.50, 0.50, 0.50, 0.50, 0.25},
+	{0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25},
 };
 
-const unsigned int outputSignalWidth  = 6;
-const unsigned int outputSignalHeight = 6;
+const unsigned int outputSignalWidth  = inputSignalWidth - maskWidth + 1;
+const unsigned int outputSignalHeight = inputSignalHeight - maskHeight + 1;
 
-cl_uint outputSignal[outputSignalHeight][outputSignalWidth];
+cl_float outputSignal[outputSignalHeight][outputSignalWidth];
 
-const unsigned int maskWidth  = 3;
-const unsigned int maskHeight = 3;
 
-cl_uint mask[maskHeight][maskWidth] =
+
+/*
+ * Function to create random 49 x 49 signal
+ */
+void rand_signal(cl_uint signal[inputSignalHeight][inputSignalWidth])
 {
-	{1, 1, 1}, {1, 0, 1}, {1, 1, 1},
-};
+	for (int i=0; i< inputSignalHeight; i++){
+		for (int j=0; j < inputSignalWidth; j++){
+			signal[i][j] = rand() % 9;
+		}
+	}
+}
 
 ///
 // Function to check and handle OpenCL errors
@@ -82,9 +90,97 @@ void CL_CALLBACK contextCallback(
 }
 
 ///
-//	main() for Convoloution example
+//  Create memory objects used as the arguments to the kernel
 //
-int main(int argc, char** argv)
+bool CreateMemObjects(cl_context context, cl_mem memObjects[3],
+                      cl_uint inputSignal[inputSignalHeight][inputSignalWidth], 
+					  cl_float mask[maskHeight][maskWidth], 
+					  int use_pinned, cl_int errNum)
+{
+	cl_mem inputSignalBuffer;
+	cl_mem maskBuffer;
+	cl_mem outputSignalBuffer;
+
+	// Pageable vs Pinned
+	cl_mem_flags hostMemType;
+	use_pinned ? hostMemType = CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR
+			   : hostMemType = CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR;
+
+	// Now allocate buffers
+	inputSignalBuffer = clCreateBuffer(context, hostMemType, 
+			sizeof(cl_uint) * inputSignalHeight * inputSignalWidth,
+			static_cast<void *>(inputSignal), &errNum);
+
+	maskBuffer = clCreateBuffer(context, hostMemType,
+		sizeof(cl_float) * maskHeight * maskWidth,
+		static_cast<void *>(mask),&errNum);
+
+	outputSignalBuffer = clCreateBuffer(context, CL_MEM_WRITE_ONLY,
+			sizeof(cl_float) * outputSignalHeight * outputSignalWidth, 
+			NULL, &errNum);
+
+	memObjects[0] = inputSignalBuffer;
+	memObjects[1] = maskBuffer;
+	memObjects[2] = outputSignalBuffer;
+                                             
+    if (memObjects[0] == NULL || memObjects[1] == NULL || memObjects[2] == NULL)
+    {
+        std::cerr << "Error creating memory objects." << std::endl;
+        return false;
+    }
+
+    return true;
+}
+/*
+ * Print convolution output to file
+ */
+void printResults(cl_float outputSignal[outputSignalHeight][outputSignalWidth])
+{
+    // Print to file
+    FILE * outFile;
+    outFile = fopen("computed_array.txt","w+");
+    for (int y = 0; y < outputSignalHeight; y++)
+	{
+		for (int x = 0; x < outputSignalWidth; x++)
+		{
+			fprintf(outFile, "%f ", outputSignal[y][x]);
+		}
+		fprintf(outFile, "\n");
+	}
+         
+}
+
+///
+//  Cleanup any created OpenCL resources
+//
+void Cleanup(cl_context context, cl_command_queue commandQueue,
+             cl_program program, cl_kernel kernel, 
+             cl_mem memObjects[3])
+{
+    for (int i = 0; i < 3; i++)
+    {
+        if (memObjects[i] != 0)
+            clReleaseMemObject(memObjects[i]);
+    }
+    if (commandQueue != 0)
+        clReleaseCommandQueue(commandQueue);
+
+    if (kernel != 0) clReleaseKernel(kernel);
+
+    if (program != 0)
+        clReleaseProgram(program);
+
+    if (context != 0)
+        clReleaseContext(context);
+
+}
+
+
+///
+//	main() for Convolution example
+//
+int memTest(int use_pinned, 
+		    cl_uint inputSignal[inputSignalHeight][inputSignalWidth])
 {
     cl_int errNum;
     cl_uint numPlatforms;
@@ -95,9 +191,7 @@ int main(int argc, char** argv)
 	cl_command_queue queue;
 	cl_program program;
 	cl_kernel kernel;
-	cl_mem inputSignalBuffer;
-	cl_mem outputSignalBuffer;
-	cl_mem maskBuffer;
+	cl_mem memObjects[3] = {0, 0, 0};
 
     // First, select an OpenCL platform to run on.  
 	errNum = clGetPlatformIDs(0, NULL, &numPlatforms);
@@ -142,12 +236,6 @@ int main(int argc, char** argv)
 			break;
 	   }
 	}
-
-	// Check to see if we found at least one CPU device, otherwise return
-// 	if (deviceIDs == NULL) {
-// 		std::cout << "No CPU device found" << std::endl;
-// 		exit(-1);
-// 	}
 
     // Next, create an OpenCL context on the selected platform.  
     cl_context_properties contextProperties[] =
@@ -215,31 +303,15 @@ int main(int argc, char** argv)
 		"convolve",
 		&errNum);
 	checkErr(errNum, "clCreateKernel");
+	
+	// Pageable vs Pinned
+	cl_mem_flags hostMemType;
+	use_pinned ? hostMemType = CL_MEM_ALLOC_HOST_PTR
+			   : hostMemType = CL_MEM_COPY_HOST_PTR;
 
-	// Now allocate buffers
-	inputSignalBuffer = clCreateBuffer(
-		context,
-		CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-		sizeof(cl_uint) * inputSignalHeight * inputSignalWidth,
-		static_cast<void *>(inputSignal),
-		&errNum);
-	checkErr(errNum, "clCreateBuffer(inputSignal)");
-
-	maskBuffer = clCreateBuffer(
-		context,
-		CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-		sizeof(cl_uint) * maskHeight * maskWidth,
-		static_cast<void *>(mask),
-		&errNum);
-	checkErr(errNum, "clCreateBuffer(mask)");
-
-	outputSignalBuffer = clCreateBuffer(
-		context,
-		CL_MEM_WRITE_ONLY,
-		sizeof(cl_uint) * outputSignalHeight * outputSignalWidth,
-		NULL,
-		&errNum);
-	checkErr(errNum, "clCreateBuffer(outputSignal)");
+	// start timing
+    clock_t start = clock();
+	if (!CreateMemObjects(context, memObjects, inputSignal, mask, use_pinned, errNum)){ return 1;}
 
 	// Pick the first device and create command queue.
 	queue = clCreateCommandQueue(
@@ -249,9 +321,9 @@ int main(int argc, char** argv)
 		&errNum);
 	checkErr(errNum, "clCreateCommandQueue");
 
-    errNum  = clSetKernelArg(kernel, 0, sizeof(cl_mem), &inputSignalBuffer);
-	errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &maskBuffer);
-    errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &outputSignalBuffer);
+    errNum  = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memObjects[0]);
+	errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[1]);
+    errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[2]);
 	errNum |= clSetKernelArg(kernel, 3, sizeof(cl_uint), &inputSignalWidth);
 	errNum |= clSetKernelArg(kernel, 4, sizeof(cl_uint), &maskWidth);
 	checkErr(errNum, "clSetKernelArg");
@@ -274,27 +346,48 @@ int main(int argc, char** argv)
     
 	errNum = clEnqueueReadBuffer(
 		queue, 
-		outputSignalBuffer, 
+		memObjects[2], 
 		CL_TRUE,
         0, 
-		sizeof(cl_uint) * outputSignalHeight * outputSignalHeight, 
+		sizeof(cl_float) * outputSignalHeight * outputSignalHeight, 
 		outputSignal,
         0, 
 		NULL, 
 		NULL);
 	checkErr(errNum, "clEnqueueReadBuffer");
 
-    // Output the result buffer
-    for (int y = 0; y < outputSignalHeight; y++)
-	{
-		for (int x = 0; x < outputSignalWidth; x++)
-		{
-			std::cout << outputSignal[y][x] << " ";
-		}
-		std::cout << std::endl;
-	}
+	 // end timing
+    clock_t end = clock();
+    double elapsed = double(end - start)/CLOCKS_PER_SEC;
 
+    use_pinned ? std::cout << "Pinned execution time: " << elapsed << "\n" << std::endl
+               : std::cout << "Pageable execution time: " << elapsed << "\n" << std::endl;
+
+    // Output the result buffer to file and cleanup
+    printResults(outputSignal);
+	Cleanup(context, queue, program, kernel, memObjects);
     std::cout << std::endl << "Executed program succesfully." << std::endl;
-
+	
 	return 0;
 }
+
+/*
+ *	Calls test function once using pageable and once with pinned host memory for
+ *  two separate input signals
+ */
+int main(int argc, char** argv)
+{
+    int use_pinned = 1;
+	cl_uint inputSignal[inputSignalHeight][inputSignalWidth];
+
+	// Test first signal
+	rand_signal(inputSignal);
+    memTest(use_pinned, inputSignal);
+    memTest(!use_pinned, inputSignal);
+
+	// Test second signal
+	rand_signal(inputSignal);
+    memTest(use_pinned, inputSignal);
+    memTest(!use_pinned, inputSignal);
+}
+
