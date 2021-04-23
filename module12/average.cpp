@@ -210,26 +210,7 @@ cl_program CreateProgram(cl_context context, cl_device_id device, const char* fi
 int memTest(int use_pinned, cl_context context, cl_command_queue commandQueue,
 cl_program program, cl_device_id device, cl_kernel kernel, cl_int errNum)
 {
-    /*cl_context context = 0;
-    cl_command_queue commandQueue = 0;
-    cl_program program = 0;
-    cl_device_id device = 0;
-    cl_kernel kernel;
     cl_mem memObjects[TOTAL_N_BUFFERS];
-    cl_int errNum;*/
-    cl_mem memObjects[TOTAL_N_BUFFERS];
-
-    /*// Create an OpenCL context on first available platform
-    context = CreateContext();
-    // Create a command-queue on the first device available
-    // on the created context
-    commandQueue = CreateCommandQueue(context, &device);
-    // Create OpenCL program from average.cl kernel source
-    program = CreateProgram(context, device, "average.cl");
-
-    // Create OpenCL kernel
-    kernel = clCreateKernel(program, "avg", &errNum);
-	checkErr(errNum, "clCreateKernel err");*/
 
     // Create input and output buffers
     // Pageable vs Pinned
