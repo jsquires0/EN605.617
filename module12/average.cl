@@ -2,16 +2,17 @@
 //
 //    This is a simple example demonstrating buffers and sub-buffer usage
 
-__kernel void average(
-    __global uint * filter,
+
+__kernel void avg(
+    const __global uint * const filter,
     __global float * const output,
+    const int filterWidth
     )
 {
-	int gid = get_global_id(0);
     float sum = 0;
-    for (int r = 0; r < 4; r++)
+    for (int i = 0; i < 2*filterWidth; i++)
     {
-        sum += filter[gid + r];
+        sum  += filter[i];
     }
-	output[gid] = sum / 4.0;
+    output[0] = sum/(2.0 * filterWidth);
 }
